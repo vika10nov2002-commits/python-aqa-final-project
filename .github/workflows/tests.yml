@@ -9,7 +9,9 @@ jobs:
 
     env:
       APP_URL: "http://127.0.0.1:8080/"
+      API_URL: "http://127.0.0.1:8080/api"
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SYSTEM_PASSWORD: ${{ secrets.SYSTEM_PASSWORD }}
 
     steps:
       - name: Checkout репозиторий
@@ -23,12 +25,12 @@ jobs:
       - name: Установка системных зависимостей
         run: |
           sudo apt update -y
-          sudo apt install build-essential libpq-dev postgresql-16 screen
+          sudo apt install -y build-essential libpq-dev postgresql-16 screen
 
       - name: Настройка БД
         run: |
           sudo pg_ctlcluster 16 main start
-          sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '"$POSTGRES_PASSWORD"'"
+          sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$POSTGRES_PASSWORD'"
           sudo -u postgres psql -c "CREATE DATABASE django_rest"
 
       - name: Установка python зависимостей
@@ -40,3 +42,14 @@ jobs:
         run: |
           python app/manage.py migrate
           screen -d -m python app/manage.py runserver 8080
+          sleep 5
+
+      - name: Прогон автотестов
+        run: |
+          pytest ./tests --html=./reports/report.html
+
+      - name: Сохранение HTML отчёта
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: reports

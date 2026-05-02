@@ -1,10 +1,17 @@
-import dotenv
+import os
 import psycopg2
 import pytest
 import requests
 
-TUTORIALS_BASE_URL = "http://127.0.0.1:8080/api/tutorials"
-USERS_BASE_URL = "http://127.0.0.1:8080/api/users"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+API_URL = os.getenv("API_URL")
+PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
+TUTORIALS_BASE_URL = f"{API_URL}/tutorials"
+USERS_BASE_URL = f"{API_URL}/users"
 
 @pytest.fixture
 def db_connect():
@@ -12,7 +19,7 @@ def db_connect():
     conn = psycopg2.connect(
         dbname="django_rest",
         user="postgres",
-        password=dotenv.get_key(".env","POSTGRES_PASSWORD"),
+        password=PASSWORD,
         host="127.0.0.1",
         port="5432"
     )

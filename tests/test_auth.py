@@ -1,9 +1,12 @@
+import os
 from unittest.mock import patch, Mock
 
 import requests
 
 from tests.conftest import USERS_BASE_URL
 
+API_URL = os.getenv("API_URL")
+SYSTEM_PASSWORD = os.getenv("SYSTEM_PASSWORD")
 
 @patch("requests.post")
 def test_fake_auth(mock_post):
@@ -20,11 +23,11 @@ def test_fake_auth(mock_post):
 
     auth_payload = {
         "username": "admin",
-        "password": "admin"
+        "password": SYSTEM_PASSWORD
     }
 
     auth_response = requests.post(
-        "http://127.0.0.1:8080/api/auth",
+        f"{API_URL}/auth",
         json=auth_payload
     )
 
