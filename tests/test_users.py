@@ -18,7 +18,6 @@ def create_user(username="test1", name="test", password="test"):
     }
 
     response = requests.post(BASE_URL, json=payload)
-    assert response.status_code == 201
     return response
 
 
@@ -45,6 +44,8 @@ def test_update_user():
         name="test",
         password="test"
     )
+    assert create_response.status_code == 201
+
     user_id = create_response.json()["id"]
 
     update_payload = {
@@ -73,6 +74,8 @@ def test_delete_user():
         password="test"
     )
 
+    assert create_response.status_code == 201
+
     user_id = create_response.json()["id"]
 
     response = requests.delete(f"{BASE_URL}/{user_id}")
@@ -81,16 +84,15 @@ def test_delete_user():
 
 
 def test_get_users():
-
-
     expected_usernames = {"test2", "test4"}
 
     for user in expected_usernames:
-        create_user(
+        create_response = create_user(
             username=user,
             name=user,
             password=user
         )
+        assert create_response.status_code == 201
 
     response = requests.get(BASE_URL)
 
@@ -113,6 +115,8 @@ def test_get_user():
         password="test2"
     )
 
+    assert create_response.status_code == 201
+
     created_user = create_response.json()
     user_id = created_user["id"]
 
@@ -124,3 +128,51 @@ def test_get_user():
 
     assert data["id"] == user_id
     assert data["username"] == created_user["username"]
+
+def test_negative_create_user():
+    payload = {
+        "username": "test1",
+        "name": "test",
+        "password": "test"
+    }
+
+    create_response = create_user(**payload)
+
+    assert create_response.status_code == 201
+
+    second_response = create_user(**payload)
+
+    assert second_response.status_code == 400
+    assert "user with this username already exists" in second_response.text
+
+def test_negative_update_user():
+    first_user_response = create_user(
+        username="test1",
+        name="test1",
+        password="test1"
+    )
+
+    second_user_response = create_user(
+        username="test2",
+        name="test2",
+        password="test2"
+    )
+
+    assert first_user_response.status_code == 201
+    assert second_user_response.status_code == 201
+
+    second_user_id = second_user_response.json()["id"]
+
+    update_payload = {
+        "username": "test1",
+        "name": "test_upd",
+        "password": "test_upd"
+    }
+
+    response = requests.put(
+        f"{BASE_URL}/{second_user_id}",
+        json=update_payload
+    )
+
+    assert response.status_code == 400
+    assert "user with this username already exists" in response.text
