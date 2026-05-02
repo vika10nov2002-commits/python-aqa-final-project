@@ -1,13 +1,12 @@
 import pytest
 import requests
 
-
-BASE_URL = "http://127.0.0.1:8080/api/users"
+from tests.conftest import USERS_BASE_URL
 
 
 @pytest.fixture(autouse=True)
 def clear_users():
-    requests.delete(BASE_URL)
+    requests.delete(USERS_BASE_URL)
 
 
 def create_user(username="test1", name="test", password="test"):
@@ -17,18 +16,18 @@ def create_user(username="test1", name="test", password="test"):
         "password": password
     }
 
-    response = requests.post(BASE_URL, json=payload)
+    response = requests.post(USERS_BASE_URL, json=payload)
     return response
 
 
-def test_create_user():
+def test_create_user(db_connect):
     payload = {
         "username": "test1",
         "name": "test",
         "password": "test"
     }
 
-    response = requests.post(BASE_URL, json=payload)
+    response = requests.post(USERS_BASE_URL, json=payload)
 
     assert response.status_code == 201
 
@@ -36,9 +35,22 @@ def test_create_user():
 
     assert data["username"] == payload["username"]
     assert "id" in data
+    user_id = data["id"]
+
+    cursor = db_connect["cursor"]
+
+    cursor.execute(
+        "SELECT username FROM users_user WHERE id = %s",
+        [user_id]
+    )
+
+    result = cursor.fetchone()
+
+    assert result is not None
+    assert result[0] == payload["username"]
 
 
-def test_update_user():
+def test_update_user(db_connect):
     create_response = create_user(
         username="test1",
         name="test",
@@ -55,7 +67,7 @@ def test_update_user():
     }
 
     response = requests.put(
-        f"{BASE_URL}/{user_id}",
+        f"{USERS_BASE_URL}/{user_id}",
         json=update_payload
     )
 
@@ -65,9 +77,20 @@ def test_update_user():
 
     assert data["username"] == update_payload["username"]
     assert data["id"] == user_id
+    cursor = db_connect["cursor"]
+
+    cursor.execute(
+        "SELECT username FROM users_user WHERE id = %s",
+        [user_id]
+    )
+
+    result = cursor.fetchone()
+
+    assert result is not None
+    assert result[0] == update_payload["username"]
 
 
-def test_delete_user():
+def test_delete_user(db_connect):
     create_response = create_user(
         username="test1",
         name="test",
@@ -78,9 +101,21 @@ def test_delete_user():
 
     user_id = create_response.json()["id"]
 
-    response = requests.delete(f"{BASE_URL}/{user_id}")
+    response = requests.delete(f"{USERS_BASE_URL}/{user_id}")
 
     assert response.status_code == 204
+
+    cursor = db_connect["cursor"]
+
+    cursor.execute(
+        "SELECT username FROM users_user WHERE id = %s",
+        [user_id]
+    )
+
+    result = cursor.fetchall()
+
+    assert not result
+
 
 
 def test_get_users():
@@ -94,7 +129,7 @@ def test_get_users():
         )
         assert create_response.status_code == 201
 
-    response = requests.get(BASE_URL)
+    response = requests.get(USERS_BASE_URL)
 
     assert response.status_code == 200
 
@@ -120,7 +155,7 @@ def test_get_user():
     created_user = create_response.json()
     user_id = created_user["id"]
 
-    response = requests.get(f"{BASE_URL}/{user_id}")
+    response = requests.get(f"{USERS_BASE_URL}/{user_id}")
 
     assert response.status_code == 200
 
@@ -129,7 +164,7 @@ def test_get_user():
     assert data["id"] == user_id
     assert data["username"] == created_user["username"]
 
-def test_negative_create_user():
+def test_negative_create_user(db_connect):
     payload = {
         "username": "test1",
         "name": "test",
@@ -140,12 +175,23 @@ def test_negative_create_user():
 
     assert create_response.status_code == 201
 
+
+    cursor = db_connect["cursor"]
+
+    cursor.execute("SELECT * FROM users_user")
+    result_before = cursor.rowcount
+
     second_response = create_user(**payload)
 
     assert second_response.status_code == 400
     assert "user with this username already exists" in second_response.text
 
-def test_negative_update_user():
+    cursor.execute("SELECT * FROM users_user")
+    result_after = cursor.rowcount
+
+    assert result_before == result_after
+
+def test_negative_update_user(db_connect):
     first_user_response = create_user(
         username="test1",
         name="test1",
@@ -170,9 +216,21 @@ def test_negative_update_user():
     }
 
     response = requests.put(
-        f"{BASE_URL}/{second_user_id}",
+        f"{USERS_BASE_URL}/{second_user_id}",
         json=update_payload
     )
 
     assert response.status_code == 400
     assert "user with this username already exists" in response.text
+
+    cursor = db_connect["cursor"]
+
+    cursor.execute(
+        "SELECT username FROM users_user WHERE id = %s",
+        [second_user_id]
+    )
+
+    result = cursor.fetchone()
+
+    assert result is not None
+    assert result[0] == "test2"
