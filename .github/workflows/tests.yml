@@ -1,7 +1,9 @@
 # .github/workflows/tests.yml
 name: Run test Application and run tests
 
-on: [push]
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   tests:
